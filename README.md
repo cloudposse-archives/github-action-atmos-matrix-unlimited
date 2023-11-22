@@ -1,6 +1,8 @@
 
 <!-- markdownlint-disable -->
-# example-github-action-composite [![Latest Release](https://img.shields.io/github/release/cloudposse/example-github-action-composite.svg)](https://github.com/cloudposse/example-github-action-composite/releases/latest) [![Slack Community](https://slack.cloudposse.com/badge.svg)](https://slack.cloudposse.com)
+# github-action-atmos-matrix-unlimited
+
+ [![Latest Release](https://img.shields.io/github/release/cloudposse/github-action-atmos-matrix-unlimited.svg)](https://github.com/cloudposse/github-action-atmos-matrix-unlimited/releases/latest) [![Slack Community](https://slack.cloudposse.com/badge.svg)](https://slack.cloudposse.com)
 <!-- markdownlint-restore -->
 
 [![README Header][readme_header_img]][readme_header_link]
@@ -28,7 +30,7 @@
 
 -->
 
-Template repository of composite GitHub Action
+GitHub Action to group list of Atmos stacks and split each group on chunks of 256 items.
 
 ---
 
@@ -58,8 +60,22 @@ It's 100% Open Source and licensed under the [APACHE2](LICENSE).
 
 ## Introduction
 
-This is template repository to create composite GitHub Actions. 
-Feel free to use it as reference and starting point.
+GitHub Actions matrix have [limit to 256 items](https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#using-a-matrix-strategy)
+There is workaround to extend the limit with [reusable workflows](https://github.com/orgs/community/discussions/38704)
+This GitHub Action expect to have 3 nesting workflows levels.
+In theory run 256 ^ 3 (i.e., 16 777 216) jobs per workflow run!
+
+You can specify jq to group Atmos stacks (default by `account`).
+So groups count limited to 256 and each group can have 256 ^ 2 (i.e., 65 536) stacks.
+
+!!!!!Important!!!!!
+Restrict concurrency to avoid DDOS GitHub Actions API and get restriction on your account.
+
+| Matrix nested level | Concurrency |
+|---------------------|-------------|
+|         1           |       1     |
+|         2           |       1     |
+|         3           |       x     |
 
 
 
@@ -69,6 +85,8 @@ Feel free to use it as reference and starting point.
 
 
 
+### Matrix Level 1 - Iterate over account
+
 ```yaml
   name: Pull Request
   on:
@@ -77,17 +95,95 @@ Feel free to use it as reference and starting point.
       types: [opened, synchronize, reopened, closed, labeled, unlabeled]
 
   jobs:
-    context:
-      runs-on: ubuntu-latest
-      steps:
-        - name: Example action
-          uses: cloudposse/example-github-action-composite@main
-          id: example
-          with:
-            param1: true
-
+    atmos-affected:
+      runs-on: self-hosted
+      name: Affected stacks
       outputs:
-        result: ${{ steps.example.outputs.result1 }}
+        matrix: ${{ steps.components.outputs.output }}
+      steps:
+        - uses: actions/checkout@v3
+          with:
+            ref: ${{ github.event.pull_request.head.sha }}
+  
+        - id: affected
+          uses: cloudposse/github-action-atmos-affected-stacks@v1
+  
+        - id: matrix
+          uses: cloudposse/github-action-atmos-matrix-unlimited@main
+          with:              
+            input: ${{ toJson(fromJson(steps.affected.outputs.matrix).include) }}
+            sort-by: .stack_slug
+            group-by: .stack_slug | split("-") | [.[0], .[2]] | join("-")
+
+    atmos-plan:
+      if: ${{ needs.atmos-affected.outputs.accounts != '{"include":[]}' }}
+      uses: ./.github/workflows/atmos-terraform-plan-account.yaml
+      needs:
+        - atmos-affected
+      strategy:
+        max-parallel: 1 # This is important to avoid ddos GHA API
+        fail-fast: false # Don't fail fast to avoid locking TF State
+        matrix: ${{ fromJson(needs.atmos-affected.outputs.matrix) }}
+      name: Plan (${{ matrix.name }})
+      with:
+        stacks: ${{ matrix.items }}
+```
+
+### Matrix Level 2 - Iterate over chunks in account
+
+```yaml
+  # ./.github/workflows/atmos-terraform-plan-account.yaml
+  on:
+    workflow_call:
+      inputs:
+        stacks:
+          description: "Stacks"
+          required: true
+          type: string
+
+  jobs:
+    atmos-plan-account:
+      if: ${{ inputs.stacks != '{include:[]}' }}
+      uses: ./.github/workflows/atmos-terraform-plan-account-chunk.yaml
+      strategy:
+        max-parallel: 1
+        fail-fast: false # Don't fail fast to avoid locking TF State
+        matrix: ${{ fromJson(inputs.stacks) }}
+      name: Chunk (${{ matrix.name }})  
+      with:
+        stacks: ${{ matrix.items }}    
+```
+
+### Matrix Level 3 - Do real work
+
+```yaml
+  # ./.github/workflows/atmos-terraform-plan-account-chunk.yaml
+  on:
+    workflow_call:
+      inputs:
+        stacks:
+          description: "Stacks"
+          required: true
+          type: string
+  jobs:
+    atmos-plan:
+      if: ${{ inputs.stacks != '{include:[]}' }}
+      strategy:
+        max-parallel: 10
+        fail-fast: false # Don't fail fast to avoid locking TF State
+        matrix: ${{ fromJson(inputs.stacks) }}
+      ## Avoid running the same stack in parallel mode (from different workflows)
+      concurrency:
+        group: ${{ matrix.stack_slug }}
+        cancel-in-progress: false
+      name: ${{ matrix.stack_slug }}
+      steps:
+        - name: Plan Atmos Component
+          uses: cloudposse/github-action-atmos-terraform-plan@v0
+          with:
+            component: ${{ matrix.component }}
+            stack: ${{ matrix.stack }}
+            component-path: ${{ matrix.component_path }}
 ```
 
 
@@ -115,7 +211,7 @@ Feel free to use it as reference and starting point.
 
 ## Share the Love
 
-Like this project? Please give it a ★ on [our GitHub](https://github.com/cloudposse/example-github-action-composite)! (it helps us **a lot**)
+Like this project? Please give it a ★ on [our GitHub](https://github.com/cloudposse/github-action-atmos-matrix-unlimited)! (it helps us **a lot**)
 
 Are you using this project or any of our other projects? Consider [leaving a testimonial][testimonial]. =)
 
@@ -139,7 +235,7 @@ For additional context, refer to some of these links.
 
 **Got a question?** We got answers.
 
-File a GitHub [issue](https://github.com/cloudposse/example-github-action-composite/issues), send us an [email][email] or join our [Slack Community][slack].
+File a GitHub [issue](https://github.com/cloudposse/github-action-atmos-matrix-unlimited/issues), send us an [email][email] or join our [Slack Community][slack].
 
 [![README Commercial Support][readme_commercial_support_img]][readme_commercial_support_link]
 
@@ -187,7 +283,7 @@ Sign up for [our newsletter][newsletter] that covers everything on our technolog
 
 ### Bug Reports & Feature Requests
 
-Please use the [issue tracker](https://github.com/cloudposse/example-github-action-composite/issues) to report any bugs or file feature requests.
+Please use the [issue tracker](https://github.com/cloudposse/github-action-atmos-matrix-unlimited/issues) to report any bugs or file feature requests.
 
 ### Developing
 
@@ -275,33 +371,33 @@ Check out [our other projects][github], [follow us on twitter][twitter], [apply 
 [![Beacon][beacon]][website]
 <!-- markdownlint-disable -->
   [logo]: https://cloudposse.com/logo-300x69.svg
-  [docs]: https://cpco.io/docs?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=docs
-  [website]: https://cpco.io/homepage?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=website
-  [github]: https://cpco.io/github?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=github
-  [jobs]: https://cpco.io/jobs?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=jobs
-  [hire]: https://cpco.io/hire?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=hire
-  [slack]: https://cpco.io/slack?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=slack
-  [linkedin]: https://cpco.io/linkedin?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=linkedin
-  [twitter]: https://cpco.io/twitter?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=twitter
-  [testimonial]: https://cpco.io/leave-testimonial?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=testimonial
-  [office_hours]: https://cloudposse.com/office-hours?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=office_hours
-  [newsletter]: https://cpco.io/newsletter?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=newsletter
-  [discourse]: https://ask.sweetops.com/?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=discourse
-  [email]: https://cpco.io/email?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=email
-  [commercial_support]: https://cpco.io/commercial-support?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=commercial_support
-  [we_love_open_source]: https://cpco.io/we-love-open-source?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=we_love_open_source
-  [terraform_modules]: https://cpco.io/terraform-modules?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=terraform_modules
+  [docs]: https://cpco.io/docs?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=docs
+  [website]: https://cpco.io/homepage?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=website
+  [github]: https://cpco.io/github?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=github
+  [jobs]: https://cpco.io/jobs?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=jobs
+  [hire]: https://cpco.io/hire?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=hire
+  [slack]: https://cpco.io/slack?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=slack
+  [linkedin]: https://cpco.io/linkedin?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=linkedin
+  [twitter]: https://cpco.io/twitter?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=twitter
+  [testimonial]: https://cpco.io/leave-testimonial?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=testimonial
+  [office_hours]: https://cloudposse.com/office-hours?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=office_hours
+  [newsletter]: https://cpco.io/newsletter?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=newsletter
+  [discourse]: https://ask.sweetops.com/?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=discourse
+  [email]: https://cpco.io/email?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=email
+  [commercial_support]: https://cpco.io/commercial-support?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=commercial_support
+  [we_love_open_source]: https://cpco.io/we-love-open-source?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=we_love_open_source
+  [terraform_modules]: https://cpco.io/terraform-modules?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=terraform_modules
   [readme_header_img]: https://cloudposse.com/readme/header/img
-  [readme_header_link]: https://cloudposse.com/readme/header/link?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=readme_header_link
+  [readme_header_link]: https://cloudposse.com/readme/header/link?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=readme_header_link
   [readme_footer_img]: https://cloudposse.com/readme/footer/img
-  [readme_footer_link]: https://cloudposse.com/readme/footer/link?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=readme_footer_link
+  [readme_footer_link]: https://cloudposse.com/readme/footer/link?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=readme_footer_link
   [readme_commercial_support_img]: https://cloudposse.com/readme/commercial-support/img
-  [readme_commercial_support_link]: https://cloudposse.com/readme/commercial-support/link?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/example-github-action-composite&utm_content=readme_commercial_support_link
-  [share_twitter]: https://twitter.com/intent/tweet/?text=example-github-action-composite&url=https://github.com/cloudposse/example-github-action-composite
-  [share_linkedin]: https://www.linkedin.com/shareArticle?mini=true&title=example-github-action-composite&url=https://github.com/cloudposse/example-github-action-composite
-  [share_reddit]: https://reddit.com/submit/?url=https://github.com/cloudposse/example-github-action-composite
-  [share_facebook]: https://facebook.com/sharer/sharer.php?u=https://github.com/cloudposse/example-github-action-composite
-  [share_googleplus]: https://plus.google.com/share?url=https://github.com/cloudposse/example-github-action-composite
-  [share_email]: mailto:?subject=example-github-action-composite&body=https://github.com/cloudposse/example-github-action-composite
-  [beacon]: https://ga-beacon.cloudposse.com/UA-76589703-4/cloudposse/example-github-action-composite?pixel&cs=github&cm=readme&an=example-github-action-composite
+  [readme_commercial_support_link]: https://cloudposse.com/readme/commercial-support/link?utm_source=github&utm_medium=readme&utm_campaign=cloudposse/github-action-atmos-matrix-unlimited&utm_content=readme_commercial_support_link
+  [share_twitter]: https://twitter.com/intent/tweet/?text=github-action-atmos-matrix-unlimited&url=https://github.com/cloudposse/github-action-atmos-matrix-unlimited
+  [share_linkedin]: https://www.linkedin.com/shareArticle?mini=true&title=github-action-atmos-matrix-unlimited&url=https://github.com/cloudposse/github-action-atmos-matrix-unlimited
+  [share_reddit]: https://reddit.com/submit/?url=https://github.com/cloudposse/github-action-atmos-matrix-unlimited
+  [share_facebook]: https://facebook.com/sharer/sharer.php?u=https://github.com/cloudposse/github-action-atmos-matrix-unlimited
+  [share_googleplus]: https://plus.google.com/share?url=https://github.com/cloudposse/github-action-atmos-matrix-unlimited
+  [share_email]: mailto:?subject=github-action-atmos-matrix-unlimited&body=https://github.com/cloudposse/github-action-atmos-matrix-unlimited
+  [beacon]: https://ga-beacon.cloudposse.com/UA-76589703-4/cloudposse/github-action-atmos-matrix-unlimited?pixel&cs=github&cm=readme&an=github-action-atmos-matrix-unlimited
 <!-- markdownlint-restore -->
