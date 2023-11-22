@@ -27,6 +27,7 @@ runs:
     - id: current
       uses: edwardgeorge/jq-action@aa5526c42ec65275c6f703333120eee7fc20fe33
       with:
+        compact: true
         input: ${{ inputs.stacks }}
         script: |-
           sort_by(${{ inputs.sort-by }}) | 
