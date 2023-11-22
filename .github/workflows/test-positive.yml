@@ -71,7 +71,7 @@ jobs:
       - uses: nick-fields/assert-action@v1
         with:
           expected: '{"include":[{"name":"core-auto","matrix":"{\"include\":[{\"name\":\"core-ue2-auto-test-2 - core-ue2-auto-test-6\",\"matrix\":\"{\\\"include\\\":[{\\\"stack\\\":\\\"core-ue2-auto\\\",\\\"component\\\":\\\"test-2\\\",\\\"stack_slug\\\":\\\"core-ue2-auto-test-2\\\",\\\"component_path\\\":\\\"\\\"},{\\\"stack\\\":\\\"core-ue2-auto\\\",\\\"component\\\":\\\"test-4\\\",\\\"stack_slug\\\":\\\"core-ue2-auto-test-4\\\",\\\"component_path\\\":\\\"\\\"},{\\\"stack\\\":\\\"core-ue2-auto\\\",\\\"component\\\":\\\"test-6\\\",\\\"stack_slug\\\":\\\"core-ue2-auto-test-6\\\",\\\"component_path\\\":\\\"\\\"}]}\"}]}"},{"name":"plat-dev","matrix":"{\"include\":[{\"name\":\"plat-ue2-dev-test-4 - plat-ue2-dev-test-4\",\"matrix\":\"{\\\"include\\\":[{\\\"stack\\\":\\\"plat-ue2-dev\\\",\\\"component\\\":\\\"test-4\\\",\\\"stack_slug\\\":\\\"plat-ue2-dev-test-4\\\",\\\"component_path\\\":\\\"\\\"}]}\"}]}"},{"name":"plat-sandbox","matrix":"{\"include\":[{\"name\":\"plat-ue2-sandbox-test-5 - plat-ue2-sandbox-test-5\",\"matrix\":\"{\\\"include\\\":[{\\\"stack\\\":\\\"plat-ue2-sandbox\\\",\\\"component\\\":\\\"test-5\\\",\\\"stack_slug\\\":\\\"plat-ue2-sandbox-test-5\\\",\\\"component_path\\\":\\\"\\\"}]}\"}]}"}]}'
-          actual: ${{ toJson(fromJson(needs.test.outputs.result)) }}
+          actual: ${{ needs.test.outputs.result }}
 
   teardown:
     runs-on: ubuntu-latest
