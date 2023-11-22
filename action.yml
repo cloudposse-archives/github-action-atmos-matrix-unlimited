@@ -34,10 +34,10 @@ runs:
           group_by(${{ inputs.group-by }}) |
           map({
             "name": first | ${{ inputs.group-by }},
-            "matrix": ( sort_by(${{ inputs.sort-by }}) | to_entries | group_by(.key / 256 | floor) | 
+            "items": ( sort_by(${{ inputs.sort-by }}) | to_entries | group_by(.key / 256 | floor) | 
               map({
                 "name": [first, last] | map(.value | ${{ inputs.sort-by }}) | join(" - "),
-                "matrix": map(.value) | {"include": . } | tostring
+                "items": map(.value) | {"include": . } | tostring
               }) | { "include": . } | tostring
             )
           }) | {"include": .}
