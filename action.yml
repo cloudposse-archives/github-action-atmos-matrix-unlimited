@@ -1,23 +1,42 @@
-name: 'Example composite GitHub action'
-description: 'Example composite GitHub action'
+name: 'Atmos matrix unlimited'
+description: 'Group Atmos account stacks and chunk them by 256 to implement nested matrices workaround'
 author: hello@cloudposse.com
 branding:
-  icon: 'file'
+  icon: 'wind'
   color: 'white'
 inputs:
-  param1:
+  stacks:
     required: true
-    description: "Input parameter placeholder"
-    default: "true"
+    description: 'Stacks list'
+    default: 'true'
+  sort-by:
+    required: false
+    description: 'Sort by query'
+    default: '.stack_slug'
+  group-by:
+    required: false
+    description: 'Group by query'
+    default: '.stack_slug | split("-") | [.[0], .[2]] | join("-")'
 outputs:
-  result1:
-    description: "Output result placeholder"
-    value: "${{ steps.context.outputs.action-result }}"
+  result:
+    description: "Matrix unlimited structure"
+    value: "${{ steps.current.outputs.output }}"
 runs:
   using: "composite"
   steps:
-    - id: context
-      shell: bash
-      run: |
-          echo "action-result=${{ inputs.param1 }}" >> $GITHUB_OUTPUT
-
+    - id: current
+      uses: edwardgeorge/jq-action@aa5526c42ec65275c6f703333120eee7fc20fe33
+      with:
+        input: ${{ fromJson(inputs.stacks) }}
+        script: |-
+          sort_by(${{ inputs.sort-by }}) | 
+          group_by(${{ inputs.group-by }}) |
+          map({
+            "name": first | ${{ inputs.group-by }},
+            "items": ( sort_by(${{ inputs.sort-by }}) | to_entries | group_by(.key / 256 | floor) | 
+              map({
+                "name": [first, last] | map(.value | ${{ inputs.sort-by }}) | join(" - "),
+                "items": map(.value) | {"include": . } | tostring
+              }) | { "include": . } | tostring
+            )
+          }) | {"include": .}
