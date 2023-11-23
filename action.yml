@@ -24,12 +24,16 @@ outputs:
 runs:
   using: "composite"
   steps:
-    - id: current
-      uses: edwardgeorge/jq-action@aa5526c42ec65275c6f703333120eee7fc20fe33
+    - name: 'Setup jq'
+      uses: dcarbone/install-jq-action@v1.0.0
       with:
-        compact: true
-        input: ${{ inputs.stacks }}
-        script: |-
+        version: 1.5
+        force: 'true'
+
+    - id: current
+      shell: bash
+      run: |-
+        cat > $QUERY <<- EOM
           sort_by(${{ inputs.sort-by }}) | 
           group_by(${{ inputs.group-by }}) |
           map({
@@ -40,4 +44,10 @@ runs:
                 "items": map(.value) | {"include": . } | tostring
               }) | { "include": . } | tostring
             )
-          }) | {"include": .}
+          }) | {"include": .}        
+        EOM        
+
+        RESULT=$(echo "${{ inputs.stacks }}" | jq -c -M ${QUERY})
+
+        echo "output=${RESULT}" >> $GITHUB_OUTPUT
+  
