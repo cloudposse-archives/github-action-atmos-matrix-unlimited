@@ -45,7 +45,7 @@ runs:
               }) | { "include": . } | tostring
             )
           }) | {"include": .}        
-        EOM
+      EOM
 
         echo "${QUERY}"
 
