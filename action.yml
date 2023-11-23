@@ -47,7 +47,7 @@ runs:
           }) | {"include": .}        
         EOM
 
-        RESULT=$(echo "${{ inputs.stacks }}" | jq -c -M ${QUERY})
+        RESULT=$(echo "${{ inputs.stacks }}" | jq -c -M ${QUERY//\\n/ })
 
         echo "output=${RESULT}" >> $GITHUB_OUTPUT
   
