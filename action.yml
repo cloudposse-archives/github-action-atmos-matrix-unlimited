@@ -33,7 +33,7 @@ runs:
     - id: current
       shell: bash
       run: |-
-        cat > $QUERY <<- EOM
+        read -r -d '' QUERY << EOM
           sort_by(${{ inputs.sort-by }}) | 
           group_by(${{ inputs.group-by }}) |
           map({
