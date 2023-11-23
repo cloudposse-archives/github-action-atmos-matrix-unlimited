@@ -45,7 +45,7 @@ runs:
               }) | { "include": . } | tostring
             )
           }) | {"include": .}        
-        EOM
+EOM
 
         RESULT=$(echo "${{ inputs.stacks }}" | jq -c -M ${QUERY//\\n/ })
 
