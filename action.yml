@@ -33,7 +33,7 @@ runs:
     - id: current
       shell: bash
       run: |-
-        read -r -d '' QUERY << EOM
+        QUERY=$(cat << EOM
           sort_by(${{ inputs.sort-by }}) | 
           group_by(${{ inputs.group-by }}) |
           map({
@@ -45,8 +45,8 @@ runs:
               }) | { "include": . } | tostring
             )
           }) | {"include": .}        
-      EOM
-
+        EOM
+        )
         echo "${QUERY}"
 
         RESULT=$(echo "${{ inputs.stacks }}" | jq -c -M ${QUERY//\\n/ })
