@@ -25,7 +25,7 @@ runs:
   using: "composite"
   steps:
     - id: current
-      uses: edwardgeorge/jq-action@aa5526c42ec65275c6f703333120eee7fc20fe33
+      uses: cloudposse/github-action-jq@v0
       with:
         compact: true
         input: ${{ inputs.stacks }}
@@ -41,3 +41,4 @@ runs:
               }) | { "include": . } | tostring
             )
           }) | {"include": .}
+
