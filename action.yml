@@ -47,7 +47,7 @@ runs:
           }) | {"include": .}        
           
       run: |-
-        RESULT=$(echo "${{ inputs.stacks }}" | jq -c -M '${QUERY//$'\n'/ })'
+        RESULT=$(echo "${{ inputs.stacks }}" | jq -c -M '${QUERY)'
 
         echo "output=${RESULT}" >> $GITHUB_OUTPUT
   
