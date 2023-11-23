@@ -48,7 +48,7 @@ runs:
           
       run: |-
         QUERY=$(echo "${QUERY}" | tr '\n' ' ')
-        RESULT=$(echo "${{ inputs.stacks }}" | jq -c -M '${QUERY}')
+        RESULT=$(echo "${{ inputs.stacks }}" | jq -c -M "${QUERY}")
 
         echo "output=${RESULT}" >> $GITHUB_OUTPUT
   
