@@ -4,12 +4,14 @@
 
 | Name | Description | Default | Required |
 |------|-------------|---------|----------|
-| param1 | Input parameter placeholder | true | true |
+| group-by | Group by query | .stack\_slug \| split("-") \| [.[0], .[2]] \| join("-") | false |
+| sort-by | Sort by query | .stack\_slug | false |
+| stacks | Stacks list | true | true |
 
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
-| result1 | Output result placeholder |
+| result | Matrix unlimited structure |
 <!-- markdownlint-restore -->
