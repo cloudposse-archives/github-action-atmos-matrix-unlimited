@@ -37,11 +37,8 @@ description: GitHub Action to group list of Atmos stacks and split each group on
 introduction: |-
   GitHub Actions matrix have [limit to 256 items](https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#using-a-matrix-strategy)
   There is workaround to extend the limit with [reusable workflows](https://github.com/orgs/community/discussions/38704)
-  This GitHub Action expect to have 3 nesting workflows levels.
-  In theory run 256 ^ 3 (i.e., 16 777 216) jobs per workflow run!
-  
-  You can specify jq to group Atmos stacks (default by `account`).
-  So groups count limited to 256 and each group can have 256 ^ 2 (i.e., 65 536) stacks.
+  This GitHub Action expect to have 2 nesting workflows levels.
+  In theory run 256 ^ 2 (i.e., 65536) jobs per workflow run!
   
   !!!!!Important!!!!!
   Restrict concurrency to avoid DDOS GitHub Actions API and get restriction on your account.
@@ -49,8 +46,7 @@ introduction: |-
   | Matrix nested level | Concurrency |
   |---------------------|-------------|
   |         1           |       1     |
-  |         2           |       1     |
-  |         3           |       x     |
+  |         2           |       x     |
 
 
 references:
@@ -108,7 +104,7 @@ usage: |-
           stacks: ${{ matrix.items }}
   ```
   
-  ### Matrix Level 2 - Iterate over chunks in account
+  ### Matrix Level 2 - Do real work
   
   ```yaml
     # ./.github/workflows/atmos-terraform-plan-account.yaml
@@ -120,30 +116,6 @@ usage: |-
             required: true
             type: string
 
-    jobs:
-      atmos-plan-account:
-        if: ${{ inputs.stacks != '{include:[]}' }}
-        uses: ./.github/workflows/atmos-terraform-plan-account-chunk.yaml
-        strategy:
-          max-parallel: 1
-          fail-fast: false # Don't fail fast to avoid locking TF State
-          matrix: ${{ fromJson(inputs.stacks) }}
-        name: Chunk (${{ matrix.name }})  
-        with:
-          stacks: ${{ matrix.items }}    
-  ```
-  
-  ### Matrix Level 3 - Do real work
-  
-  ```yaml
-    # ./.github/workflows/atmos-terraform-plan-account-chunk.yaml
-    on:
-      workflow_call:
-        inputs:
-          stacks:
-            description: "Stacks"
-            required: true
-            type: string
     jobs:
       atmos-plan:
         if: ${{ inputs.stacks != '{include:[]}' }}
