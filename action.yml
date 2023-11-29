@@ -30,15 +30,16 @@ runs:
         compact: true
         input: ${{ inputs.stacks }}
         script: |-
-          sort_by(${{ inputs.sort-by }}) | 
-          group_by(${{ inputs.group-by }}) |
-          map({
-            "name": first | ${{ inputs.group-by }},
-            "items": ( sort_by(${{ inputs.sort-by }}) | to_entries | group_by(.key / 256 | floor) | 
+          def name: ${{ inputs.sort-by }};
+          def group: ${{ inputs.group-by }};
+          def chunk: .key / 256 | floor;
+          def group_name: [(.value | group), (chunk | if . == 0 then empty else . end)] | join(" ");
+          
+          sort_by(name) | 
+          group_by(group) |
+          map( to_entries | group_by(chunk) | 
               map({
-                "name": [first, last] | map(.value | ${{ inputs.sort-by }}) | join(" - "),
+                "name": first | group_name,
                 "items": map(.value) | {"include": . } | tostring
-              }) | { "include": . } | tostring
-            )
-          }) | {"include": .}
-
+              })
+          ) | flatten | { "include": . }
