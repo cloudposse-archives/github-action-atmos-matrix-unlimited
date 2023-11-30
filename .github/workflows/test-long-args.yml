@@ -4455,7 +4455,7 @@ jobs:
 
     outputs:
       result: "${{ steps.current.outputs.result }}"
-      outcome: "${{ steps.current.outputs.outcome }}"
+      outcome: "${{ steps.current.outcome }}"
 
   assert:
     runs-on: ubuntu-latest
