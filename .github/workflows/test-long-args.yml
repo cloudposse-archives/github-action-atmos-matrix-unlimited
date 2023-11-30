@@ -4449,18 +4449,23 @@ jobs:
                 "affected": "component"
               }
             ]
-            
 
           sort-by: '.stack_slug'
           group-by: '.stack_slug | split("-") | [.[0], .[2]] | join("-")'
 
     outputs:
       result: "${{ steps.current.outputs.result }}"
+      outcome: "${{ steps.current.outputs.outcome }}"
 
   assert:
     runs-on: ubuntu-latest
     needs: [test]
     steps:
+      - uses: nick-fields/assert-action@v1
+        with:
+          expected: 'success'
+          actual: ${{ needs.test.outputs.outcome }}
+
       - uses: nick-fields/assert-action@v1
         with:
           expected: '{"include":[{"name":"core-auto","items":"{\"include\":[{\"stack\":\"core-ue2-auto\",\"component\":\"test-2\",\"stack_slug\":\"core-ue2-auto-test-2\",\"component_path\":\"\"},{\"stack\":\"core-ue2-auto\",\"component\":\"test-4\",\"stack_slug\":\"core-ue2-auto-test-4\",\"component_path\":\"\"},{\"stack\":\"core-ue2-auto\",\"component\":\"test-6\",\"stack_slug\":\"core-ue2-auto-test-6\",\"component_path\":\"\"}]}"},{"name":"plat-dev","items":"{\"include\":[{\"stack\":\"plat-ue2-dev\",\"component\":\"test-4\",\"stack_slug\":\"plat-ue2-dev-test-4\",\"component_path\":\"\"}]}"},{"name":"plat-sandbox","items":"{\"include\":[{\"stack\":\"plat-ue2-sandbox\",\"component\":\"test-5\",\"stack_slug\":\"plat-ue2-sandbox-test-5\",\"component_path\":\"\"}]}"}]}'
